@@ -1,0 +1,22 @@
+table,field,description,type
+fact_encounters_dirty,encounter_id,Unique encounter identifier,Key
+fact_encounters_dirty,patient_id,Links encounter to patient,Foreign key
+fact_encounters_dirty,department_id,Hospital department,Foreign key
+fact_encounters_dirty,arrival_datetime,Patient arrival date/time,Datetime
+fact_encounters_dirty,arrival_method,How patient arrived,Category
+fact_encounters_dirty,acuity_level,Urgency level,Category
+fact_encounters_dirty,staff_on_duty,Approximate staff available,Numeric
+fact_encounters_dirty,daily_patient_volume,Patients arriving that day,Numeric
+fact_encounters_dirty,waiting_time_minutes,Minutes until patient was seen,Numeric
+fact_encounters_dirty,outcome,Encounter outcome,Category
+fact_encounters_dirty,length_of_stay_days,Admission length; 0 if not admitted,Numeric
+fact_encounters_dirty,patient_satisfaction,Illustrative 1–5 satisfaction score,Numeric
+dim_patients,patient_id,Synthetic patient identifier,Key
+dim_patients,age,Patient age,Numeric
+dim_patients,gender,Patient gender,Category
+dim_patients,province,South African province,Category
+dim_patients,funding_type,Funding category,Category
+dim_departments,department_id,Department code,Key
+dim_departments,department_name,Department name,Text
+dim_departments,service_line,Broad service line,Category
+dim_departments,target_wait_minutes,Illustrative operational target,Numeric

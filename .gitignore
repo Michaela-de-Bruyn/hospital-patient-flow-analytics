@@ -1,0 +1,27 @@
+# SQL Server / local files
+*.bak
+*.mdf
+*.ndf
+*.ldf
+
+# SSMS
+*.user
+*.suo
+
+# VS Code
+.vscode/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Power BI local/cache files
+*.tmp
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Local exports
+exports/

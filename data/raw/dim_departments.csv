@@ -1,0 +1,7 @@
+department_id,department_name,service_line,target_wait_minutes
+ED,Emergency Department,Emergency,60
+OPD,Outpatient Department,Outpatient,90
+MAT,Maternity,Maternity,60
+PED,Paediatrics,Paediatric,75
+SURG,General Surgery,Surgical,120
+ORTH,Orthopaedics,Surgical,120
