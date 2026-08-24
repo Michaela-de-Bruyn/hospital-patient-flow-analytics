@@ -2,78 +2,126 @@
 
 ## Purpose
 
-The Bronze layer is the raw landing layer of the Medallion architecture.
+The Bronze layer stores the raw source data with minimal transformation.
 
-The principle is simple:
+The main purpose is to keep a reliable copy of the source data before cleaning and transformation takes place.
 
-> Preserve the source before transforming it.
+---
 
-This means the Bronze layer intentionally contains the source data-quality issues.
+## Source Data
 
-## Tables
+The project uses three source files:
 
-### `bronze.patients_raw`
+| File | Description |
+|---|---|
+| `dim_patients.csv` | Patient information |
+| `dim_departments.csv` | Hospital department information |
+| `fact_encounters_dirty.csv` | Hospital encounter information |
 
-Patient reference data.
+The files are stored in:
 
-### `bronze.departments_raw`
+`data/raw/`
 
-Department reference data.
+---
 
-### `bronze.encounters_raw`
+## Bronze Tables
 
-Hospital encounter/event data.
+The raw files were loaded into the following Bronze tables:
 
-**Grain:** one source row represents one hospital encounter record.
+| Table | Source |
+|---|---|
+| `bronze.patients_raw` | `dim_patients.csv` |
+| `bronze.departments_raw` | `dim_departments.csv` |
+| `bronze.encounters_raw` | `fact_encounters_dirty.csv` |
 
-## Why the Bronze layer is permissive
+The `_raw` naming convention makes it clear that these tables contain source data before Silver transformations.
 
-The raw columns are stored mainly as `NVARCHAR` rather than immediately enforcing
-business data types.
+---
 
-For example:
+## Ingestion
 
-```sql
-waiting_time_minutes NVARCHAR(50)
-```
+The source CSV files were imported into SQL Server.
 
-The value can later be validated and converted in Silver:
+The Bronze layer was intentionally kept close to the original source structure.
 
-```sql
-TRY_CAST(waiting_time_minutes AS INT)
-```
+The main goal at this stage was:
 
-This makes the pipeline more traceable and allows invalid source values to be
-identified rather than silently rejected.
+- Load the source data
+- Preserve the original values
+- Check row counts
+- Confirm the data was successfully ingested
+- Avoid applying business transformations too early
 
-## Data-quality issues intentionally present
+---
 
-The encounter source contains examples of:
+## Initial Data Checks
 
+After ingestion, the Bronze data was checked using SQL.
+
+Checks included:
+
+- Row counts
 - NULL values
+- Duplicate encounter IDs
+- Arrival methods
+- Acuity levels
+- Outcomes
+- Waiting-time ranges
+- Arrival dates
+- Patient relationships
+- Department relationships
+
+---
+
+## Encounter Data
+
+The Bronze encounter table contained:
+
+**30,035 records**
+
+This dataset was intentionally used to demonstrate data-quality handling.
+
+The initial checks identified:
+
+- Missing values
 - Duplicate encounter records
-- Inconsistent arrival-method labels
 - Invalid waiting times
-- Missing/invalid date values
+- Invalid or missing dates
+- Records with missing patient IDs
 
-These are not fixed in Bronze.
+These issues were not removed from Bronze.
 
-## Validation checkpoint
+Instead, they were handled during the Silver transformation.
 
-The Bronze ingestion is considered complete when:
+---
+
+## Bronze Design Principle
+
+The Bronze layer acts as the raw source layer.
+
+Data is not permanently changed or cleaned at this stage.
+
+This provides a reference point for:
+
+- Data quality investigations
+- Reconciliation
+- Troubleshooting
+- Reprocessing
+- Auditing
+
+The cleaned and validated data is created in the Silver layer.
+
+---
+
+## Next Layer
+
+The Bronze data feeds into the Silver layer.
 
 ```text
-patients_raw       = 12,000
-departments_raw    = 6
-encounters_raw     = 30,035
-```
-
-and the raw profiling queries have been run.
-
-## Technical principle
-
-Bronze is not the analytical layer.
-
-Power BI should not connect directly to Bronze.
-
-Bronze feeds Silver, and Silver feeds the business-ready Gold model.
+Raw CSV files
+      ↓
+Bronze
+      ↓
+Data cleaning and validation
+      ↓
+Silver
