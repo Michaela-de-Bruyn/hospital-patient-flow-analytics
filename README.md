@@ -1,60 +1,111 @@
-# Hospital Patient Flow & Waiting Time Analytics
+# 🏥 Hospital Patient Flow & Waiting Time Analytics
 
-## 📌 Project Overview
+An end-to-end **Data Engineering and Business Intelligence project** analysing hospital patient flow, waiting-time performance and operational patterns across **29,933 patient encounters**.
 
-This project demonstrates an end-to-end Data Engineering workflow for analysing hospital patient flow and waiting times.
+The project takes hospital encounter data through a **Bronze → Silver → Gold** data architecture using SQL and Databricks, then connects the validated Gold layer to a Power BI semantic model and interactive dashboard.
 
-The project starts with synthetic CSV data containing patients, hospital departments and encounter-level records. The data is transformed through a **Bronze → Silver → Gold** architecture and prepared for business reporting.
+The objective is not simply to report hospital KPIs, but to investigate **where waiting-time pressure occurs, how it varies across patient and operational characteristics, and what patterns may require further investigation.**
 
-The project was first developed and validated using SQL Server and was then implemented in **Databricks using Lakeflow** to demonstrate pipeline orchestration and dependency management.
-
-The final Gold layer is designed to support a reporting dashboard focused on hospital waiting times, patient flow and operational performance.
-
-> **Note:** All project data is synthetic and created for portfolio and interview purposes.
+> **Note:** The dataset combines generated hospital data with an open-source dataset and is used for portfolio and interview purposes. It does not represent a production hospital system or real patient records.
 
 ---
 
-## 🏗️ Architecture
+# 📌 Business Problem
+
+Patient waiting time is an important operational indicator in a hospital environment. Looking only at an overall average can hide differences between departments, acuity levels, arrival methods and periods of higher patient demand.
+
+This project focuses on understanding:
+
+- How patient volume changes over time
+- Which departments experience higher waiting times
+- How waiting time varies by patient acuity
+- How frequently patients wait longer than 120 minutes
+- Whether waiting-time patterns differ between weekdays and weekends
+- Whether higher patient volumes are associated with longer waiting times
+- How waiting-time performance differs by arrival method
+- How waiting time relates to other operational measures such as length of stay and patient satisfaction
+
+The final dashboard is designed to move from **high-level performance monitoring** into **deeper operational analysis**.
+
+---
+
+# 🏗️ End-to-End Architecture
 
 ```text
-CSV SOURCE
-    ↓
-🥉 BRONZE
-Raw / minimally changed data
-    ↓
-🥈 SILVER
-Cleaning + validation
-    ├── Clean records
-    └── Quarantine
-    ↓
-🥇 GOLD
-Star schema
-    ↓
-📊 DASHBOARD
-Planned next phase
+                         SOURCE DATA
+                             │
+                             ▼
+                    ┌─────────────────┐
+                    │     BRONZE      │
+                    │ Raw source data │
+                    └────────┬────────┘
+                             │
+                             ▼
+                    ┌─────────────────┐
+                    │     SILVER      │
+                    │ Cleaning +      │
+                    │ validation      │
+                    │ + quarantine    │
+                    └────────┬────────┘
+                             │
+                             ▼
+                    ┌─────────────────┐
+                    │      GOLD       │
+                    │ Star schema     │
+                    │ Fact +          │
+                    │ dimensions      │
+                    └────────┬────────┘
+                             │
+                             ▼
+                    ┌─────────────────┐
+                    │    POWER BI     │
+                    │ Semantic Model  │
+                    │ + DAX           │
+                    │ + Dashboard     │
+                    └─────────────────┘
 ```
 
-The Databricks implementation uses **Lakeflow** to orchestrate the Silver and Gold transformations and represent dataset dependencies.
+The data engineering pipeline was initially developed and validated using **SQL Server** and subsequently implemented in **Databricks using Lakeflow** for pipeline orchestration and dependency management.
 
 ---
 
-## 📂 Source Data
+# 📂 Source Data
 
-The project uses three synthetic CSV files:
+The project uses hospital-related encounter data combining **generated data with an open-source dataset**.
 
-| File | Description |
+The analytical dataset contains:
+
+**29,933 clean patient encounters**
+
+The original Bronze encounter dataset contains:
+
+**30,035 records**
+
+After data-quality processing:
+
+```text
+30,035 Bronze encounters
+        │
+        ├── 29,933 clean encounters
+        │
+        └──    102 quarantined records
+```
+
+### Source datasets
+
+| Dataset | Description |
 |---|---|
 | `dim_patients.csv` | Patient demographic and funding information |
 | `dim_departments.csv` | Hospital department reference data |
-| `fact_encounters_dirty.csv` | Hospital encounter and waiting-time data containing data-quality issues |
+| `fact_encounters_dirty.csv` | Encounter-level hospital data containing data-quality issues |
 
-**Fact grain:** One row represents one hospital encounter.
+**Fact grain:** one row represents one hospital encounter.
 
 ---
 
 # 🥉 Bronze Layer
 
-The Bronze layer preserves the source data as closely as possible.
+The Bronze layer preserves the source data as closely as possible while providing the starting point for downstream processing.
 
 ### Bronze tables
 
@@ -66,34 +117,39 @@ bronze.encounters_raw
 
 ### Purpose
 
-- Load the CSV source data
-- Preserve source values
-- Check ingestion and row counts
-- Profile data-quality issues
-- Provide a reliable source for downstream transformations
+The Bronze layer is responsible for:
 
-The Bronze layer does not perform the main cleaning or business transformations.
+- Loading the source data
+- Preserving source values
+- Checking ingestion and row counts
+- Profiling data-quality issues
+- Providing a reliable source for downstream transformations
 
-**Bronze encounter count: 30,035 records.**
+The main business transformations are intentionally performed in the Silver and Gold layers rather than directly against the raw data.
 
-See the Bronze diagram and documentation under `diagrams/` and `docs/`.
+### Bronze encounter count
+
+**30,035 records**
 
 ---
 
 # 🥈 Silver Layer
 
-The Silver layer is the **cleaning and validation layer**.
+The Silver layer is the primary **cleaning, validation and data-quality layer**.
 
-### Main transformations
+### Key transformations
 
 - Data-type conversion
+- Text standardisation
 - Trimming unnecessary spaces
-- Standardising text values
-- Duplicate detection and handling
+- Duplicate detection
+- Duplicate handling
 - Missing-value handling
 - Waiting-time validation
 - Date conversion
-- Derived fields such as weekend flags and wait bands
+- Derived fields
+- Weekend/day-type classification
+- Wait-band creation
 - Data-quality quarantine
 
 ### Silver datasets
@@ -123,9 +179,9 @@ silver.pipeline_encounters_quarantine
 30,035 Bronze records
 ```
 
-This confirms that all Bronze encounter records are accounted for.
+This reconciliation confirms that the original encounter population is accounted for after data-quality processing.
 
-Invalid and duplicate records are retained in quarantine rather than simply deleted.
+Invalid and duplicate records are retained in quarantine rather than silently removed.
 
 ---
 
@@ -133,7 +189,7 @@ Invalid and duplicate records are retained in quarantine rather than simply dele
 
 The Gold layer is the **business-ready analytical layer**.
 
-The model uses a **star schema**, with the encounter fact table at the centre.
+A star-schema structure was created with the encounter fact table at the centre and supporting dimensions surrounding it.
 
 ### Gold datasets
 
@@ -156,29 +212,42 @@ gold.pipeline_dim_date
 | Date dimension | 365 |
 | Encounter fact | 29,933 |
 
-The arrival-method dimension contains an `Unknown` member with key `0`, so missing arrival methods can remain in the fact table.
+The arrival-method dimension includes an **Unknown** member with key `0`, allowing missing arrival methods to remain represented in the fact table while maintaining a valid dimension relationship.
 
-### Analytical questions supported
+---
 
-- Average waiting time by department
-- Waiting time by province
-- Waiting time by arrival method
-- Waiting time by month
-- Weekend vs weekday waiting time
-- Waiting time by patient acuity
-- Patient satisfaction vs waiting time
-- Waiting time vs staffing levels
-- Waiting time vs daily patient volume
+# 🧱 Data Model
+
+The Power BI semantic model uses the Gold-layer fact and dimension tables.
+
+### Central fact table
+
+`pipeline_fact_encounters`
+
+Contains encounter-level information used for the analytical calculations.
+
+### Dimensions
+
+- `pipeline_dim_date`
+- `pipeline_dim_patient`
+- `pipeline_dim_department`
+- `pipeline_dim_arrival_method`
+
+The model follows a dimensional/star-schema approach to support flexible analysis across time, patient characteristics, departments and arrival methods.
+
+### Power BI Data Model
+
+![Power BI Data Model](powerbi/documentation/data-model.png)
 
 ---
 
 # ☁️ Databricks & Lakeflow
 
-The validated SQL model was then implemented in **Databricks**.
+The validated SQL transformations were implemented in **Databricks**.
 
-Lakeflow is used to orchestrate the transformations and build a dependency graph from the dataset references.
+**Lakeflow** was used to orchestrate the Silver and Gold transformations and represent dataset dependencies.
 
-Example:
+Examples of pipeline dependencies include:
 
 ```text
 pipeline_patients
@@ -196,7 +265,7 @@ pipeline_encounters
 pipeline_dim_arrival_method
 ```
 
-The pipeline was successfully executed.
+The pipeline was successfully executed and the resulting datasets were validated against the expected data model.
 
 ### Final pipeline validation
 
@@ -214,34 +283,39 @@ The pipeline was successfully executed.
 
 The output counts matched the validated data model.
 
-Pipeline screenshots are stored under:
+Pipeline diagrams and Databricks documentation are available under:
 
 ```text
 databricks/diagrams/
+databricks/docs/
 ```
 
 ---
 
-# 🔎 Key Data-Quality Decisions
+# 🔎 Data Quality Decisions
 
-### Duplicate encounters
+Data-quality issues were intentionally handled rather than hidden from the downstream analytical model.
 
-Duplicate `encounter_id` values were identified using `ROW_NUMBER()`. One record is retained and additional duplicate copies are quarantined.
+## Duplicate Encounters
 
-### Invalid waiting times
+Duplicate `encounter_id` values were identified using `ROW_NUMBER()`.
 
-Waiting times outside the accepted **0–720 minute** range are treated as invalid for the clean encounter dataset.
+One valid record is retained while additional duplicate copies are moved into quarantine.
 
-### Missing arrival methods
+## Invalid Waiting Times
 
-Missing arrival methods are represented by:
+Waiting times outside the accepted **0–720 minute range** are treated as invalid for the clean encounter dataset.
+
+## Missing Arrival Methods
+
+Missing arrival methods are represented using:
 
 ```text
 arrival_method_key = 0
 arrival_method = Unknown
 ```
 
-This keeps the encounter in the fact table while maintaining a valid dimension relationship.
+This allows the encounter to remain in the fact table while maintaining referential integrity with the arrival-method dimension.
 
 The arrival-method dimension therefore contains:
 
@@ -255,9 +329,132 @@ The arrival-method dimension therefore contains:
 
 ---
 
-# 🛠️ Technologies Used
+# 📊 Power BI Dashboard
+
+The Gold layer is consumed by Power BI to provide an interactive analytical view of hospital patient flow and waiting-time performance.
+
+The report contains **two pages**, intentionally separating executive-level information from deeper operational analysis.
+
+---
+
+## 1. Executive Overview
+
+The first page provides a high-level view of hospital performance.
+
+The page focuses on questions such as:
+
+- How many patient encounters are being handled?
+- What is the average waiting time?
+- How is waiting-time performance changing over time?
+- Which departments experience higher waiting times?
+- How do arrival methods differ?
+- What proportion of patients experience long waits?
+- How does overall performance compare against the waiting-time target?
+
+![Executive Overview](powerbi/screenshots/executive-overview.png)
+
+---
+
+## 2. Patient Flow & Operational Drivers
+
+The second page moves deeper into the operational factors surrounding patient waiting time.
+
+The analysis includes:
+
+- Patient volume over time
+- Three-month moving average
+- Patient volume by day of week
+- Patient volume versus average waiting time
+- Waiting time by acuity
+- Long-wait rate by acuity
+- Long-wait rate by department and acuity
+- Weekday versus weekend performance
+- Waiting-time differences across operational categories
+
+The page is designed to answer:
+
+> **Where are the operational patterns behind patient waiting times, and which areas may require further investigation?**
+
+![Patient Flow & Operational Drivers](powerbi/screenshots/patient-flow-operations.png)
+
+---
+
+# 📐 Power BI Analysis
+
+The Power BI model uses DAX measures and calculated columns to support the analytical layer.
+
+Key calculations include:
+
+- Total encounters
+- Average waiting time
+- Long-wait rate
+- Average length of stay
+- Patient satisfaction
+- Patient volume
+- Moving averages
+- Weekday/weekend comparisons
+- Acuity-level analysis
+- Department-level analysis
+
+A **120-minute threshold** is used to identify long waits.
+
+A **three-month moving average** provides additional context around patient-volume trends by smoothing short-term fluctuations.
+
+A custom weekday-number column was created to ensure that day-of-week analysis is displayed chronologically:
+
+```text
+Monday → Tuesday → Wednesday → Thursday → Friday → Saturday → Sunday
+```
+
+The Power BI report also includes:
+
+- Interactive filtering
+- Conditional formatting
+- Custom sorting
+- Page navigation
+- Comparison analysis
+- Business-focused visual design
+
+---
+
+# 🔎 Key Analytical Insights
+
+The dashboard is designed to identify patterns rather than simply display individual KPIs.
+
+### Patient Volume and Waiting Time
+
+The analysis indicates a **positive relationship between patient volume and average waiting time** within the dataset, providing a starting point for investigating capacity and demand pressure.
+
+### Long Waits
+
+The 120-minute threshold provides a more focused operational measure than average waiting time alone.
+
+The department × acuity analysis allows areas with higher long-wait rates to be identified for further investigation.
+
+### Day-of-Week Patterns
+
+Patient volume remains relatively consistent across the week, with differences between individual days that can be explored alongside waiting-time performance.
+
+### Weekday vs Weekend
+
+The comparison analysis evaluates differences in:
+
+- Patient encounters
+- Average waiting time
+- Long-wait rate
+- Length of stay
+- Patient satisfaction
+
+This provides a more detailed view of operational performance than an overall hospital average.
+
+> These observations describe patterns within the dataset. They should not be interpreted as proof of causation.
+
+---
+
+# 🛠️ Technology Stack
 
 ### Data Engineering
+
 - SQL
 - SQL Server
 - Databricks
@@ -268,6 +465,7 @@ The arrival-method dimension therefore contains:
 - Star schema
 
 ### Data Quality
+
 - Data profiling
 - Duplicate detection
 - Null handling
@@ -276,134 +474,131 @@ The arrival-method dimension therefore contains:
 - Quarantine handling
 - Reconciliation checks
 
-### Documentation & Version Control
+### Business Intelligence
+
+- Power BI
+- DAX
+- Power Query
+- Semantic modelling
+- Time-series analysis
+- Conditional formatting
+- Interactive dashboard development
+
+### Development & Documentation
+
 - Git
 - GitHub
 - Draw.io
 - Markdown
-
-### Planned Analytics
-- Power BI
 
 ---
 
 # 📁 Repository Structure
 
 ```text
-hospital-patient-flow/
+hospital-patient-flow-analytics/
 │
 ├── data/
 │   └── raw/
+│
+├── databricks/
+│   ├── diagrams/
+│   ├── docs/
+│   └── sql/
 │
 ├── diagrams/
 │
 ├── docs/
 │
-├── sql/
-│   └── SQL Server implementation
+├── powerbi/
+│   ├── Hospital Patient Flow.pbix
+│   │
+│   ├── screenshots/
+│   │   ├── executive-overview.png
+│   │   └── patient-flow-operations.png
+│   │
+│   └── documentation/
+│       └── data-model.png
 │
-└── databricks/
-    ├── sql/
-    │   ├── 01_silver_patients.sql
-    │   ├── 02_silver_departments.sql
-    │   ├── 03_silver_encounters.sql
-    │   ├── 04_silver_quarantine.sql
-    │   ├── 05_gold_dim_patient.sql
-    │   ├── 06_gold_dim_department.sql
-    │   ├── 07_gold_dim_arrival_method.sql
-    │   ├── 08_gold_dim_date.sql
-    │   └── 09_gold_fact_encounters.sql
-    │
-    ├── diagrams/
-    │   ├── lakeflow_pipeline_graph.png
-    │   ├── lakeflow_pipeline_performance.png
-    │   └── lakeflow_pipeline_tables.png
-    │
-    └── docs/
-        ├── DATABRICKS_PIPELINE_README.md
-        ├── PIPELINE_VALIDATION.md
-        └── PIPELINE_DIAGRAMS.md
+├── sql/
+│   ├── bronze/
+│   ├── silver/
+│   └── gold/
+│
+└── README.md
 ```
-
----
-
-# 📊 Dashboard — Next Phase
-
-The pipeline and Gold analytical model are complete and validated.
-
-The **next phase is to build the Power BI dashboard** using the Gold layer.
-
-The dashboard will focus on:
-
-### Waiting Time
-- Average waiting time
-- Waiting time by department
-- Waiting-time trends
-- Waiting-time bands
-
-### Patient Flow
-- Patient volume over time
-- Volume by department
-- Arrival-method analysis
-
-### Operational Performance
-- Waiting time vs staffing
-- Weekend vs weekday performance
-- Patient satisfaction vs waiting time
-- Waiting time vs daily patient volume
-
-The dashboard will use the **Gold fact and dimension tables**, rather than raw Bronze data.
-
-> **Dashboard status: Planned / next phase.**
 
 ---
 
 # 🎯 Project Outcome
 
-This project demonstrates the progression from raw source data to a validated analytical data platform:
+This project demonstrates an end-to-end workflow from **raw data to business insight**:
 
 ```text
-Raw CSV
-   ↓
+Source Data
+    ↓
 Bronze
-   ↓
+    ↓
 Data Quality Investigation
-   ↓
+    ↓
 Silver
-   ↓
+    ↓
 Quarantine
-   ↓
+    ↓
 Gold Star Schema
-   ↓
-Databricks Lakeflow
-   ↓
-Validated Pipeline
-   ↓
-📊 Dashboard
+    ↓
+Databricks / Lakeflow
+    ↓
+Validated Analytical Model
+    ↓
+Power BI Semantic Model
+    ↓
+Interactive Dashboard
+    ↓
+Business Insights
 ```
 
-The project demonstrates practical skills in:
+The project demonstrates practical experience in:
 
-- Understanding source data
-- Designing a Medallion architecture
-- Writing SQL transformations
-- Performing data-quality checks
-- Handling duplicates and invalid data
-- Building a dimensional model
-- Creating pipeline dependencies
-- Using Databricks and Lakeflow
-- Validating pipeline outputs
+- Designing a layered data architecture
+- Developing SQL transformations
+- Building data-quality controls
+- Handling duplicates and invalid records
+- Implementing quarantine processes
+- Building fact and dimension tables
+- Designing a star schema
+- Developing Databricks pipelines
+- Working with pipeline dependencies
+- Validating data across pipeline layers
+- Developing DAX measures
+- Building Power BI semantic models
+- Performing operational analysis
+- Translating business questions into analytical visuals
 - Documenting technical decisions
-- Managing code with Git/GitHub
+- Using Git and GitHub for version control
 
 ---
 
 # 🚀 Future Improvements
 
-- Build the Power BI dashboard
-- Add pipeline scheduling
-- Add automated data-quality expectations
-- Add monitoring and alerts
-- Add incremental processing
-- Add more detailed audit logging
-- Add CI/CD integration for Databricks code
+If this solution were implemented in a real-world hospital environment, the next stage would be to make the pipeline **production-ready and sustainable as new data arrives**.
+
+Potential improvements would include:
+
+- **Incremental processing** so new patient encounters can be added without reprocessing the entire dataset
+- **Pipeline performance optimisation** as data volumes increase
+- **Automated data-quality checks** for incoming records
+- **Pipeline monitoring** for failures and processing times
+- **Automated Power BI refreshes** so the dashboard reflects the latest available data
+- **Scalability improvements** as the volume and frequency of incoming data increases
+
+The main consideration would be moving from a validated portfolio pipeline to a solution that can be **maintained reliably as new data continuously enters the system**.
+
+---
+
+# 👩‍💻 Author
+
+**Michaela de Bruyn**
+
+Data Engineering | Data Analytics | Business Intelligence | Cloud
+
